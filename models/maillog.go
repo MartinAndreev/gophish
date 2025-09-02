@@ -57,7 +57,7 @@ type MailLogRetryItem struct {
 func GenerateRetryMailLogs(rls []MailLogRetryItem) error {
 	for _, r := range rls {
 		var result Result
-		err := db.Table("results").Joins("left join campaign c on results.campaign_id = c.id").Where("r_id = ? and c.status = ? and c.launch_date <= ?", r.RId, CampaignInProgress, time.Now().UTC()).First(&result).Error
+		err := db.Table("results").Joins("left join campaigns c on results.campaign_id = c.id").Where("r_id = ? and c.status = ? and c.launch_date <= ?", r.RId, CampaignInProgress, time.Now().UTC()).First(&result).Error
 
 		if err != nil {
 			if gorm.IsRecordNotFoundError(err) {

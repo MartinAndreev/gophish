@@ -4,10 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 
+	log "github.com/gophish/gophish/logger"
+
 	"github.com/gophish/gophish/models"
 )
 
 func (as *Server) MailLog(w http.ResponseWriter, r *http.Request) {
+	log.Info("Called with ", r.Method, " ", r.URL.Path)
+
 	switch {
 	case r.Method == "POST":
 		c := models.MailLogRetryRequest{}
