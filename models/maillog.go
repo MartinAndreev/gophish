@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jinzhu/gorm"
+
 	"github.com/gophish/gomail"
 	"github.com/gophish/gophish/config"
 	log "github.com/gophish/gophish/logger"
@@ -42,6 +44,47 @@ type MailLog struct {
 	Processing  bool      `json:"-"`
 
 	cachedCampaign *Campaign
+}
+
+type MailLogRetryRequest struct {
+	Items []MailLogRetryItem `json:"items"`
+}
+
+type MailLogRetryItem struct {
+	RId string `json:"r_id"`
+}
+
+func GenerateRetryMailLogs(rls []MailLogRetryItem) error {
+	for _, r := range rls {
+		var result Result
+		err := db.Table("results").Joins("left join campaign c on results.campaign_id = c.id").Where("r_id = ? and c.status = ? and c.launch_date <= ?", r.RId, CampaignInProgress, time.Now().UTC()).First(&result).Error
+
+		if err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				log.Warnf("No errored result found for RId: %s", r.RId)
+				continue
+			}
+			return err
+		}
+		var existingMailLog MailLog
+		err = db.Where("r_id = ?", result.RId).First(&existingMailLog).Error
+		if err != nil && !gorm.IsRecordNotFoundError(err) {
+			return err
+		}
+		if existingMailLog.Id != 0 {
+			log.Warnf("MailLog already exists for RId: %s", r.RId)
+			continue
+		}
+		campaign, err := GetCampaign(result.CampaignId, result.UserId)
+		if err != nil {
+			return err
+		}
+		err = GenerateMailLog(&campaign, &result, time.Now())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GenerateMailLog creates a new maillog for the given campaign and
